@@ -1,2 +1,8 @@
 FROM flink:1.7.1-scala_2.12-alpine
+
+# Add Prometheus jar
 COPY ./prometheus/flink-metrics-prometheus_2.12-1.7.1.jar /opt/flink/lib
+
+# Update entrypoint
+COPY docker-entrypoint.sh /
+RUN chmod +x /docker-entrypoint.sh /
