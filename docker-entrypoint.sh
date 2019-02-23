@@ -30,16 +30,13 @@ if [ "${CMD}" = "help" ]; then
 elif [ "${CMD}" = "${JOB_MANAGER}" -o "${CMD}" = "${TASK_MANAGER}" ]; then
     shift
     sed -i -e "s/jobmanager.rpc.address: localhost/jobmanager.rpc.address: ${JOB_MANAGER_RPC_ADDRESS}/g" "$FLINK_HOME/conf/flink-conf.yaml"
-    echo "metrics.reporters: prom" | tee -a "$FLINK_HOME/conf/flink-conf.yaml"
-    echo "metrics.reporter.prom.class: org.apache.flink.metrics.prometheus.PrometheusReporter" | tee -a "$FLINK_HOME/conf/flink-conf.yaml"
-    echo "metrics.reporter.prom.port: 9249" | tee -a "$FLINK_HOME/conf/flink-conf.yaml"
-    echo "metrics.internal.query-service.port: ${CONTAINER_METRIC_PORT}" | tee -a "$FLINK_HOME/conf/flink-conf.yaml"
+    echo "metrics.internal.query-service.port: ${CONTAINER_METRIC_PORT}" >> "$FLINK_HOME/conf/flink-conf.yaml"
     if [ "${CMD}" = "${TASK_MANAGER}" ]; then
-        TASK_MANAGER_NUMBER_OF_TASK_SLOTS=${TASK_MANAGER_NUMBER_OF_TASK_SLOTS:-$(grep -c ^processor /proc/cpuinfo)}
 
         echo "Starting Task Manager"
-        sed -i -e "s/taskmanager.numberOfTaskSlots: 1/taskmanager.numberOfTaskSlots: $TASK_MANAGER_NUMBER_OF_TASK_SLOTS/g" "$FLINK_HOME/conf/flink-conf.yaml"
-        echo "taskmanager.host : ${K8S_POD_IP}" | tee -a "$FLINK_HOME/conf/flink-conf.yaml"
+        sed -i -e "s/taskmanager.numberOfTaskSlots: 1/taskmanager.numberOfTaskSlots: ${TASKMANAGER_SLOTS}/g" "$FLINK_HOME/conf/flink-conf.yaml"
+        sed -i -e "s/taskmanager.heap.size: 1024m/taskmanager.heap.size: ${TASKMANAGER_MEMORY}/g" "$FLINK_HOME/conf/flink-conf.yaml"
+        echo "taskmanager.host : ${K8S_POD_IP}" >> "$FLINK_HOME/conf/flink-conf.yaml"
         echo "blob.server.port: 6124" >> "$FLINK_HOME/conf/flink-conf.yaml"
         echo "query.server.port: 6125" >> "$FLINK_HOME/conf/flink-conf.yaml"
 
@@ -47,8 +44,9 @@ elif [ "${CMD}" = "${JOB_MANAGER}" -o "${CMD}" = "${TASK_MANAGER}" ]; then
         exec $(drop_privs_cmd) "$FLINK_HOME/bin/taskmanager.sh" start-foreground
     else
         echo "Starting Job Manager"
+        sed -i -e "s/jobmanager.heap.size: 1024m/jobmanager.heap.size: ${JOBMANAGER_MEMORY}/g" "$FLINK_HOME/conf/flink-conf.yaml"
         echo "blob.server.port: 6124" >> "$FLINK_HOME/conf/flink-conf.yaml"
-        echo "query.server.port: 6125" >> "$FLINK_HOME/conf/flink-conf.yaml"
+        echo "query.server.ports: 6125" >> "$FLINK_HOME/conf/flink-conf.yaml"
 
         echo "config file: " && grep '^[^\n#]' "$FLINK_HOME/conf/flink-conf.yaml"
         exec $(drop_privs_cmd) "$FLINK_HOME/bin/jobmanager.sh" start-foreground "$@"
