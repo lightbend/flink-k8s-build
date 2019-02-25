@@ -43,13 +43,19 @@ elif [ "${CMD}" = "${JOB_MANAGER}" -o "${CMD}" = "${TASK_MANAGER}" ]; then
         echo "config file: " && grep '^[^\n#]' "$FLINK_HOME/conf/flink-conf.yaml"
         exec $(drop_privs_cmd) "$FLINK_HOME/bin/taskmanager.sh" start-foreground
     else
-        echo "Starting Job Manager"
         sed -i -e "s/jobmanager.heap.size: 1024m/jobmanager.heap.size: ${JOBMANAGER_MEMORY}/g" "$FLINK_HOME/conf/flink-conf.yaml"
         echo "blob.server.port: 6124" >> "$FLINK_HOME/conf/flink-conf.yaml"
         echo "query.server.ports: 6125" >> "$FLINK_HOME/conf/flink-conf.yaml"
 
         echo "config file: " && grep '^[^\n#]' "$FLINK_HOME/conf/flink-conf.yaml"
-        exec $(drop_privs_cmd) "$FLINK_HOME/bin/jobmanager.sh" start-foreground "$@"
+        if [ -z "$1" ]
+        then
+            echo "Starting Job Manager"
+            exec $(drop_privs_cmd) "$FLINK_HOME/bin/jobmanager.sh" start-foreground
+        else
+            echo "Starting Application"
+            exec $(drop_privs_cmd) "$FLINK_HOME/bin/standalone-job.sh" start-foreground --job-classname "$@"
+        fi
     fi
 fi
 
