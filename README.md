@@ -1,8 +1,15 @@
 # FDP Flink Build
 
-A small project to build Flink images with built-in support for exporting metrics to Prometheus.
+A small project to build Flink images. Although there are official Flink
+images available [here](https://hub.docker.com/_/flink), these images do not
+contain flink-metrics-prometheus jar required for
+[exporting Flink metrics to Prometheus](https://ci.apache.org/projects/flink/flink-docs-stable/monitoring/metrics.html#prometheus-orgapacheflinkmetricsprometheusprometheusreporter).
+As a result, it is necessary to build custom Flink images adding this required jar
 
-Although there are official Flink images available [here](https://hub.docker.com/_/flink), these images do not contain the `flink-metrics-prometheus.jar` required for [exporting Flink metrics to Prometheus](https://ci.apache.org/projects/flink/flink-docs-stable/monitoring/metrics.html#prometheus-orgapacheflinkmetricsprometheusprometheusreporter). As a result, it is necessary to build custom Flink images adding this required jar
+## Building and Publishing the Images
+
+1. Edit the Flink version (currently 1.7.2) in the `ci-build.sh` and all the `Dockerfile*` files.
+2. Run `ci-build.sh`. Pass the `--no-push` option if you don't want the built Docker images pushed to the Lightbend repo. (There is also a `--help` option.)
 
 ## License
 

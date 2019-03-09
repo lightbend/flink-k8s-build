@@ -1,25 +1,9 @@
 #!/bin/sh
 
-###############################################################################
-#  Licensed to the Apache Software Foundation (ASF) under one
-#  or more contributor license agreements.  See the NOTICE file
-#  distributed with this work for additional information
-#  regarding copyright ownership.  The ASF licenses this file
-#  to you under the Apache License, Version 2.0 (the
-#  "License"); you may not use this file except in compliance
-#  with the License.  You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-# limitations under the License.
-###############################################################################
-
-# If unspecified, the hostname of the container is taken as the JobManager address
-JOB_MANAGER_RPC_ADDRESS=${JOB_MANAGER_RPC_ADDRESS:-$(hostname -f)}
+################################################################################
+#   from https://github.com/apache/flink/blob/release-1.7/flink-container/docker/docker-entrypoint.sh
+#   and https://github.com/docker-flink/docker-flink/blob/63b19a904fa8bfd1322f1d59fdb226c82b9186c7/1.7/scala_2.11-alpine/docker-entrypoint.sh
+################################################################################
 
 drop_privs_cmd() {
     if [ $(id -u) != 0 ]; then
@@ -34,29 +18,45 @@ drop_privs_cmd() {
     fi
 }
 
-if [ "$1" = "help" ]; then
-    echo "Usage: $(basename "$0") (jobmanager|taskmanager|help)"
+JOB_MANAGER="jobmanager"
+TASK_MANAGER="taskmanager"
+
+CMD="$1"
+
+
+if [ "${CMD}" = "help" ]; then
+    echo "Usage: $(basename $0) (${JOB_MANAGER}|${TASK_MANAGER}|help)"
     exit 0
-elif [ "$1" = "jobmanager" ]; then
-    shift 1
-    echo "Starting Job Manager"
+elif [ "${CMD}" = "${JOB_MANAGER}" -o "${CMD}" = "${TASK_MANAGER}" ]; then
+    shift
     sed -i -e "s/jobmanager.rpc.address: localhost/jobmanager.rpc.address: ${JOB_MANAGER_RPC_ADDRESS}/g" "$FLINK_HOME/conf/flink-conf.yaml"
-    echo "blob.server.port: 6124" >> "$FLINK_HOME/conf/flink-conf.yaml"
-    echo "query.server.port: 6125" >> "$FLINK_HOME/conf/flink-conf.yaml"
+    echo "metrics.internal.query-service.port: ${CONTAINER_METRIC_PORT}" >> "$FLINK_HOME/conf/flink-conf.yaml"
+    if [ "${CMD}" = "${TASK_MANAGER}" ]; then
 
-    echo "config file: " && grep '^[^\n#]' "$FLINK_HOME/conf/flink-conf.yaml"
-    exec $(drop_privs_cmd) "$FLINK_HOME/bin/jobmanager.sh" start-foreground "$@"
-elif [ "$1" = "taskmanager" ]; then
-    TASK_MANAGER_NUMBER_OF_TASK_SLOTS=${TASK_MANAGER_NUMBER_OF_TASK_SLOTS:-$(grep -c ^processor /proc/cpuinfo)}
+        echo "Starting Task Manager"
+        sed -i -e "s/taskmanager.numberOfTaskSlots: 1/taskmanager.numberOfTaskSlots: ${TASKMANAGER_SLOTS}/g" "$FLINK_HOME/conf/flink-conf.yaml"
+        sed -i -e "s/taskmanager.heap.size: 1024m/taskmanager.heap.size: ${TASKMANAGER_MEMORY}/g" "$FLINK_HOME/conf/flink-conf.yaml"
+        echo "taskmanager.host : ${K8S_POD_IP}" >> "$FLINK_HOME/conf/flink-conf.yaml"
+        echo "blob.server.port: 6124" >> "$FLINK_HOME/conf/flink-conf.yaml"
+        echo "query.server.port: 6125" >> "$FLINK_HOME/conf/flink-conf.yaml"
 
-    sed -i -e "s/jobmanager.rpc.address: localhost/jobmanager.rpc.address: ${JOB_MANAGER_RPC_ADDRESS}/g" "$FLINK_HOME/conf/flink-conf.yaml"
-    sed -i -e "s/taskmanager.numberOfTaskSlots: 1/taskmanager.numberOfTaskSlots: $TASK_MANAGER_NUMBER_OF_TASK_SLOTS/g" "$FLINK_HOME/conf/flink-conf.yaml"
-    echo "blob.server.port: 6124" >> "$FLINK_HOME/conf/flink-conf.yaml"
-    echo "query.server.port: 6125" >> "$FLINK_HOME/conf/flink-conf.yaml"
+        echo "config file: " && grep '^[^\n#]' "$FLINK_HOME/conf/flink-conf.yaml"
+        exec $(drop_privs_cmd) "$FLINK_HOME/bin/taskmanager.sh" start-foreground
+    else
+        sed -i -e "s/jobmanager.heap.size: 1024m/jobmanager.heap.size: ${JOBMANAGER_MEMORY}/g" "$FLINK_HOME/conf/flink-conf.yaml"
+        echo "blob.server.port: 6124" >> "$FLINK_HOME/conf/flink-conf.yaml"
+        echo "query.server.ports: 6125" >> "$FLINK_HOME/conf/flink-conf.yaml"
 
-    echo "Starting Task Manager"
-    echo "config file: " && grep '^[^\n#]' "$FLINK_HOME/conf/flink-conf.yaml"
-    exec $(drop_privs_cmd) "$FLINK_HOME/bin/taskmanager.sh" start-foreground
+        echo "config file: " && grep '^[^\n#]' "$FLINK_HOME/conf/flink-conf.yaml"
+        if [ -z "$1" ]
+        then
+            echo "Starting Job Manager"
+            exec $(drop_privs_cmd) "$FLINK_HOME/bin/jobmanager.sh" start-foreground
+        else
+            echo "Starting Application"
+            exec $(drop_privs_cmd) "$FLINK_HOME/bin/standalone-job.sh" start-foreground --job-classname "$@"
+        fi
+    fi
 fi
 
 exec "$@"
