@@ -19,15 +19,16 @@ drop_privs_cmd() {
 }
 
 JOB_MANAGER="jobmanager"
+JOB_CLUSTER="jobcluster"
 TASK_MANAGER="taskmanager"
 
 CMD="$1"
 
 
 if [ "${CMD}" = "help" ]; then
-    echo "Usage: $(basename $0) (${JOB_MANAGER}|${TASK_MANAGER}|help)"
+    echo "Usage: $(basename $0) (${JOB_MANAGER}|${JOB_CLUSTER}|${TASK_MANAGER}|help)"
     exit 0
-elif [ "${CMD}" = "${JOB_MANAGER}" -o "${CMD}" = "${TASK_MANAGER}" ]; then
+elif [ "${CMD}" = "${JOB_MANAGER}" -o "${CMD}" = "${JOB_CLUSTER}" -o "${CMD}" = "${TASK_MANAGER}" ]; then
     shift
     sed -i -e "s/jobmanager.rpc.address: localhost/jobmanager.rpc.address: ${JOB_MANAGER_RPC_ADDRESS}/g" "$FLINK_HOME/conf/flink-conf.yaml"
     echo "metrics.internal.query-service.port: ${CONTAINER_METRIC_PORT}" >> "$FLINK_HOME/conf/flink-conf.yaml"
@@ -48,10 +49,9 @@ elif [ "${CMD}" = "${JOB_MANAGER}" -o "${CMD}" = "${TASK_MANAGER}" ]; then
         echo "query.server.ports: 6125" >> "$FLINK_HOME/conf/flink-conf.yaml"
 
         echo "config file: " && grep '^[^\n#]' "$FLINK_HOME/conf/flink-conf.yaml"
-        if [ -z "$1" ]
-        then
+        if [ "${CMD}" = "${JOB_MANAGER}" ]; then
             echo "Starting Job Manager"
-            exec $(drop_privs_cmd) "$FLINK_HOME/bin/jobmanager.sh" start-foreground
+            exec $(drop_privs_cmd) "$FLINK_HOME/bin/jobmanager.sh" start-foreground "$@"
         else
             echo "Starting Application"
             exec $(drop_privs_cmd) "$FLINK_HOME/bin/standalone-job.sh" start-foreground --job-classname "$@"
