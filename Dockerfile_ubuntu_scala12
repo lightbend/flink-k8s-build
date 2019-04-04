@@ -64,6 +64,7 @@ RUN echo "metrics.reporter.prom.port: 9249" >>  "/opt/flink/conf/flink-conf.yaml
 # Add write permissions to the directories
 RUN chmod -R 777 /opt/flink/log
 RUN chmod -R 777 /opt/flink/conf
+RUN chmod -R 777 /opt
 
 # Configure container
 COPY docker-entrypoint.sh /
