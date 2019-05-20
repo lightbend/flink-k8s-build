@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-FLINK_VERSION=1.7.2
+FLINK_VERSION=1.8.0
 
 SCRIPT=$(basename ${BASH_SOURCE[0]})
 ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P )"

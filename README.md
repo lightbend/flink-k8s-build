@@ -8,7 +8,7 @@ As a result, it is necessary to build custom Flink images adding this required j
 
 ## Building and Publishing the Images
 
-1. Edit the Flink version (currently 1.7.2) in the `ci-build.sh` and all the `Dockerfile*` files.
+1. Edit the Flink version (currently 1.8.0) in the `ci-build.sh` and all the `Dockerfile*` files.
 2. Run `ci-build.sh`. Pass the `--no-push` option if you don't want the built Docker images pushed to the Lightbend repo. (There is also a `--help` option.)
 
 ## License

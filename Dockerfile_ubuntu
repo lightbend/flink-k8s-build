@@ -29,7 +29,7 @@ RUN set -ex; \
   gosu nobody true
 
 # Configure Flink version
-ENV FLINK_VERSION=1.7.2 \
+ENV FLINK_VERSION=1.8.0 \
     HADOOP_SCALA_VARIANT=scala_2.11
 
 # Prepare environment
@@ -51,9 +51,9 @@ RUN set -ex; \
   chown -R flink:flink .;
 
 # Add Prometheus, Table and Queryable state jars. Add additional jars if you need
-RUN mv /opt/flink/opt/flink-metrics-prometheus-1.7.2.jar /opt/flink/lib/
-RUN mv /opt/flink/opt/flink-queryable-state-runtime_2.11-1.7.2.jar /opt/flink/lib/
-RUN mv /opt/flink/opt/flink-table_2.11-1.7.2.jar /opt/flink/lib/
+RUN mv /opt/flink/opt/flink-metrics-prometheus-1.8.0.jar /opt/flink/lib/
+RUN mv /opt/flink/opt/flink-queryable-state-runtime_2.11-1.8.0.jar /opt/flink/lib/
+RUN mv /opt/flink/opt/flink-table_2.11-1.8.0.jar /opt/flink/lib/
 
 # Add Prometheus metric reporter to config
 RUN echo "metrics.reporters: prom" >> "/opt/flink/conf/flink-conf.yaml"
