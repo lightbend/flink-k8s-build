@@ -1,21 +1,59 @@
-FROM flink:1.8.0-scala_2.11-alpine
+FROM openjdk:8-jre-alpine
 
-# Add Prometheus, Table and Queryable state jars. Add additional jars if you need
-RUN mv /opt/flink/opt/flink-metrics-prometheus-1.8.0.jar /opt/flink/lib/
-RUN mv /opt/flink/opt/flink-queryable-state-runtime_2.11-1.8.0.jar /opt/flink/lib/
-RUN mv /opt/flink/opt/flink-table_2.11-1.8.0.jar /opt/flink/lib/
+# Install requirements
+RUN apk add --no-cache bash snappy libc6-compat
 
-# Add Prometheus metric reporter to config
-RUN echo "metrics.reporters: prom" >> "/opt/flink/conf/flink-conf.yaml"
-RUN echo "metrics.reporter.prom.class: org.apache.flink.metrics.prometheus.PrometheusReporter" >> "/opt/flink/conf/flink-conf.yaml"
-RUN echo "metrics.reporter.prom.port: 9249" >>  "/opt/flink/conf/flink-conf.yaml"
 
+ENV GOSU_VERSION 1.11
+RUN set -eux; \
+	\
+	apk add --no-cache --virtual .gosu-deps \
+		dpkg \
+		gnupg \
+	; \
+	\
+	dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')"; \
+	wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch"; \
+	wget -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch.asc"; \
+	\
+# verify the signature
+	export GNUPGHOME="$(mktemp -d)"; \
+# for flaky keyservers, consider https://github.com/tianon/pgp-happy-eyeballs, ala https://github.com/docker-library/php/pull/666
+	gpg --batch --keyserver ha.pool.sks-keyservers.net --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4; \
+	gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu; \
+	command -v gpgconf && gpgconf --kill all || :; \
+	rm -rf "$GNUPGHOME" /usr/local/bin/gosu.asc; \
+	\
+# clean up fetch dependencies
+	apk del --no-network .gosu-deps; \
+	\
+	chmod +x /usr/local/bin/gosu; \
+# verify that the binary works
+	gosu --version; \
+	gosu nobody true
+
+# Flink environment variables
+ENV FLINK_INSTALL_PATH=/opt
+ENV FLINK_HOME $FLINK_INSTALL_PATH/flink
+ENV FLINK_LIB_DIR $FLINK_HOME/lib
+ENV PATH $PATH:$FLINK_HOME/bin
+RUN addgroup -S -g 9999 flink && \
+    adduser -D -S -H -u 9999 -G flink -h $FLINK_HOME flink
+WORKDIR $FLINK_HOME
+
+# flink-dist points to a directory on the local system
+ARG flink_dist=NOT_SET
+
+# Install flink
+ADD $flink_dist $FLINK_HOME
+RUN chown -R flink:flink $FLINK_HOME
 
 # Add write permissions to the directories
-RUN chmod -R 777 /opt/flink/log
-RUN chmod -R 777 /opt/flink/conf
-RUN chmod -R 777 /opt
+RUN chmod -R 777 $FLINK_INSTALL_PATH
 
-# Update entrypoint
+# Configure container
 COPY docker-entrypoint.sh /
 RUN chmod +x /docker-entrypoint.sh /
+ENTRYPOINT ["/docker-entrypoint.sh"]
+EXPOSE 6123 8081
+CMD ["help"]

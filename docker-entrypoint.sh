@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ################################################################################
 #   from https://github.com/apache/flink/blob/release-1.8/flink-container/docker/docker-entrypoint.sh
@@ -32,21 +32,35 @@ elif [[ "${CMD}" = "${JOB_MANAGER}" || "${CMD}" = "${JOB_CLUSTER}" || "${CMD}" =
     shift
     sed -i -e "s/jobmanager.rpc.address: localhost/jobmanager.rpc.address: ${JOB_MANAGER_RPC_ADDRESS}/g" "$FLINK_HOME/conf/flink-conf.yaml"
     echo "metrics.internal.query-service.port: ${CONTAINER_METRIC_PORT}" >> "$FLINK_HOME/conf/flink-conf.yaml"
+    echo "rest.port: 8081" >> "$FLINK_HOME/conf/flink-conf.yaml"
+    echo "blob.server.port: 6124" >> "$FLINK_HOME/conf/flink-conf.yaml"
+    echo "query.server.port: 6125" >> "$FLINK_HOME/conf/flink-conf.yaml"
+
+    # Use HA, if checkpoint is defined
+    if [[ -z "${CheckpointDir}" ]]; then
+        echo "No checkpoint defined"
+    else
+        echo "high-availability: filesystem" >> "$FLINK_HOME/conf/flink-conf.yaml"
+        echo "high-availability.storageDir: file://${CheckpointDir}" >> "$FLINK_HOME/conf/flink-conf.yaml"
+        echo "state.checkpoints.num-retained: 5" >> "$FLINK_HOME/conf/flink-conf.yaml"
+    fi
+    # Set Savepoint
+    if [[ -z "${SavepointDir}" ]]; then
+        echo "No savepoint defined"
+    else
+        echo "state.savepoints.dir: file://${SavepointDir}" >> "$FLINK_HOME/conf/flink-conf.yaml"
+    fi
     if [[ "${CMD}" = "${TASK_MANAGER}" ]]; then
 
         echo "Starting Task Manager"
         sed -i -e "s/taskmanager.numberOfTaskSlots: 1/taskmanager.numberOfTaskSlots: ${TASKMANAGER_SLOTS}/g" "$FLINK_HOME/conf/flink-conf.yaml"
         sed -i -e "s/taskmanager.heap.size: 1024m/taskmanager.heap.size: ${TASKMANAGER_MEMORY}/g" "$FLINK_HOME/conf/flink-conf.yaml"
         echo "taskmanager.host : ${K8S_POD_IP}" >> "$FLINK_HOME/conf/flink-conf.yaml"
-        echo "blob.server.port: 6124" >> "$FLINK_HOME/conf/flink-conf.yaml"
-        echo "query.server.port: 6125" >> "$FLINK_HOME/conf/flink-conf.yaml"
 
         echo "config file: " && grep '^[^\n#]' "$FLINK_HOME/conf/flink-conf.yaml"
         exec $(drop_privs_cmd) "$FLINK_HOME/bin/taskmanager.sh" start-foreground
     else
         sed -i -e "s/jobmanager.heap.size: 1024m/jobmanager.heap.size: ${JOBMANAGER_MEMORY}/g" "$FLINK_HOME/conf/flink-conf.yaml"
-        echo "blob.server.port: 6124" >> "$FLINK_HOME/conf/flink-conf.yaml"
-        echo "query.server.ports: 6125" >> "$FLINK_HOME/conf/flink-conf.yaml"
 
         echo "config file: " && grep '^[^\n#]' "$FLINK_HOME/conf/flink-conf.yaml"
         if [[ "${CMD}" = "${JOB_MANAGER}" ]]; then
@@ -54,7 +68,17 @@ elif [[ "${CMD}" = "${JOB_MANAGER}" || "${CMD}" = "${JOB_CLUSTER}" || "${CMD}" =
             exec $(drop_privs_cmd) "$FLINK_HOME/bin/jobmanager.sh" start-foreground "$@"
         else
             echo "Starting Application"
-            exec $(drop_privs_cmd) "$FLINK_HOME/bin/standalone-job.sh" start-foreground --job-classname "$@"
+            if [[ -z "${CheckpointDir}" ]]; then
+                FILE=${CheckpointDir}/ha
+                if test -f "$FILE"; then
+                    exec $(drop_privs_cmd) "$FLINK_HOME/bin/jobmanager.sh" start-foreground
+                else
+                    exec $(drop_privs_cmd) "$FLINK_HOME/bin/standalone-job.sh" start-foreground --job-classname "$@"
+                fi
+            else
+                exec $(drop_privs_cmd) "$FLINK_HOME/bin/standalone-job.sh" start-foreground --job-classname "$@"
+            fi
+
         fi
     fi
 fi
