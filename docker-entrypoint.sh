@@ -68,17 +68,7 @@ elif [[ "${CMD}" = "${JOB_MANAGER}" || "${CMD}" = "${JOB_CLUSTER}" || "${CMD}" =
             exec $(drop_privs_cmd) "$FLINK_HOME/bin/jobmanager.sh" start-foreground "$@"
         else
             echo "Starting Application"
-            if [[ -z "${CheckpointDir}" ]]; then
-                FILE=${CheckpointDir}/ha
-                if test -f "$FILE"; then
-                    exec $(drop_privs_cmd) "$FLINK_HOME/bin/jobmanager.sh" start-foreground
-                else
-                    exec $(drop_privs_cmd) "$FLINK_HOME/bin/standalone-job.sh" start-foreground --job-classname "$@"
-                fi
-            else
-                exec $(drop_privs_cmd) "$FLINK_HOME/bin/standalone-job.sh" start-foreground --job-classname "$@"
-            fi
-
+            exec $(drop_privs_cmd) "$FLINK_HOME/bin/standalone-job.sh" start-foreground --job-classname "$@"
         fi
     fi
 fi

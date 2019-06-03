@@ -24,6 +24,8 @@ import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -37,6 +39,9 @@ import java.util.List;
  * @param <T> The type of the data that can be stored by this storage helper.
  */
 public class FileSystemStorageHelper<T extends Serializable> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(FileSystemStorageHelper.class);
+
 
     private final Path rootPath;
 
@@ -109,6 +114,7 @@ public class FileSystemStorageHelper<T extends Serializable> {
             return new File(filePath.getPath());
         }
         catch (Exception e) {
+            LOG.info("Could not open output stream for state backend" );
             throw new Exception("Could not open output stream for state backend", e);
         }
     }
@@ -132,7 +138,7 @@ public class FileSystemStorageHelper<T extends Serializable> {
             if (f.isDirectory()) {
                 cleanup(f);
             }
-            if(f.exists()) {
+            if (f.exists()) {
                 f.delete();
             }
         }
@@ -201,6 +207,7 @@ public class FileSystemStorageHelper<T extends Serializable> {
         if((file != null) && (file.exists()) && (file.isDirectory())) {
             return filesToList(file.listFiles(), skip);
         }
+        LOG.info("No childrens found for file " + file.getPath());
         return new LinkedList<>();
     }
 

@@ -25,7 +25,6 @@ import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.runtime.blob.BlobStoreService;
 import org.apache.flink.runtime.blob.BlobUtils;
-import org.apache.flink.runtime.blob.VoidBlobStore;
 import org.apache.flink.runtime.dispatcher.Dispatcher;
 import org.apache.flink.runtime.highavailability.filesystem.FileSystemHAServices;
 import org.apache.flink.runtime.highavailability.nonha.embedded.EmbeddedHaServices;
@@ -52,8 +51,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class HighAvailabilityServicesUtils {
 
 	public static HighAvailabilityServices createAvailableOrEmbeddedServices(
-		Configuration config,
-		Executor executor) throws Exception {
+			Configuration config,
+			Executor executor) throws Exception {
 
 		HighAvailabilityMode highAvailabilityMode = LeaderRetrievalUtils.getRecoveryMode(config);
 		BlobStoreService blobStoreService;
@@ -63,7 +62,7 @@ public class HighAvailabilityServicesUtils {
 				return new EmbeddedHaServices(executor);
 
 			case FILESYSTEM:
-				blobStoreService = new VoidBlobStore();
+				blobStoreService = BlobUtils.createBlobStoreFromConfig(config);
 				return new FileSystemHAServices(
 						executor,
 						config,
@@ -73,10 +72,10 @@ public class HighAvailabilityServicesUtils {
 				blobStoreService = BlobUtils.createBlobStoreFromConfig(config);
 
 				return new ZooKeeperHaServices(
-					ZooKeeperUtils.startCuratorFramework(config),
-					executor,
-					config,
-					blobStoreService);
+						ZooKeeperUtils.startCuratorFramework(config),
+						executor,
+						config,
+						blobStoreService);
 
 			case FACTORY_CLASS:
 				return createCustomHAServices(config, executor);
@@ -87,9 +86,9 @@ public class HighAvailabilityServicesUtils {
 	}
 
 	public static HighAvailabilityServices createHighAvailabilityServices(
-		Configuration configuration,
-		Executor executor,
-		AddressResolution addressResolution) throws Exception {
+			Configuration configuration,
+			Executor executor,
+			AddressResolution addressResolution) throws Exception {
 
 		HighAvailabilityMode highAvailabilityMode = LeaderRetrievalUtils.getRecoveryMode(configuration);
 
@@ -98,36 +97,36 @@ public class HighAvailabilityServicesUtils {
 				Tuple2<String, Integer> hostnamePort = getJobManagerAddress(configuration);
 
 				String jobManagerRpcUrl = AkkaRpcServiceUtils.getRpcUrl(
-					hostnamePort.f0,
-					hostnamePort.f1,
-					JobMaster.JOB_MANAGER_NAME,
-					addressResolution,
-					configuration);
+						hostnamePort.f0,
+						hostnamePort.f1,
+						JobMaster.JOB_MANAGER_NAME,
+						addressResolution,
+						configuration);
 				String resourceManagerRpcUrl = AkkaRpcServiceUtils.getRpcUrl(
-					hostnamePort.f0,
-					hostnamePort.f1,
-					ResourceManager.RESOURCE_MANAGER_NAME,
-					addressResolution,
-					configuration);
+						hostnamePort.f0,
+						hostnamePort.f1,
+						ResourceManager.RESOURCE_MANAGER_NAME,
+						addressResolution,
+						configuration);
 				String dispatcherRpcUrl = AkkaRpcServiceUtils.getRpcUrl(
-					hostnamePort.f0,
-					hostnamePort.f1,
-					Dispatcher.DISPATCHER_NAME,
-					addressResolution,
-					configuration);
+						hostnamePort.f0,
+						hostnamePort.f1,
+						Dispatcher.DISPATCHER_NAME,
+						addressResolution,
+						configuration);
 
 				String address = checkNotNull(configuration.getString(RestOptions.ADDRESS),
-					"%s must be set",
-					RestOptions.ADDRESS.key());
+						"%s must be set",
+						RestOptions.ADDRESS.key());
 				int port = configuration.getInteger(RestOptions.PORT);
 				boolean enableSSL = SSLUtils.isRestSSLEnabled(configuration);
 				String protocol = enableSSL ? "https://" : "http://";
 
 				return new StandaloneHaServices(
-					resourceManagerRpcUrl,
-					dispatcherRpcUrl,
-					jobManagerRpcUrl,
-					String.format("%s%s:%s", protocol, address, port));
+						resourceManagerRpcUrl,
+						dispatcherRpcUrl,
+						jobManagerRpcUrl,
+						String.format("%s%s:%s", protocol, address, port));
 
 			case FILESYSTEM:
 				hostnamePort = getJobManagerAddress(configuration);
@@ -158,24 +157,25 @@ public class HighAvailabilityServicesUtils {
 				enableSSL = SSLUtils.isRestSSLEnabled(configuration);
 				protocol = enableSSL ? "https://" : "http://";
 
-				BlobStoreService blobStoreService = new VoidBlobStore();
+				BlobStoreService blobStoreService = BlobUtils.createBlobStoreFromConfig(configuration);
+
 				return new FileSystemHAServices(
-					resourceManagerRpcUrl,
-					dispatcherRpcUrl,
-					jobManagerRpcUrl,
-					String.format("%s%s:%s", protocol, address, port),
-					executor,
-					configuration,
-					blobStoreService);
+						resourceManagerRpcUrl,
+						dispatcherRpcUrl,
+						jobManagerRpcUrl,
+						String.format("%s%s:%s", protocol, address, port),
+						executor,
+						configuration,
+						blobStoreService);
 
 			case ZOOKEEPER:
 				blobStoreService = BlobUtils.createBlobStoreFromConfig(configuration);
 
 				return new ZooKeeperHaServices(
-					ZooKeeperUtils.startCuratorFramework(configuration),
-					executor,
-					configuration,
-					blobStoreService);
+						ZooKeeperUtils.startCuratorFramework(configuration),
+						executor,
+						configuration,
+						blobStoreService);
 
 			case FACTORY_CLASS:
 				return createCustomHAServices(configuration, executor);
@@ -200,13 +200,13 @@ public class HighAvailabilityServicesUtils {
 
 		if (hostname == null) {
 			throw new ConfigurationException("Config parameter '" + JobManagerOptions.ADDRESS +
-				"' is missing (hostname/address of JobManager to connect to).");
+					"' is missing (hostname/address of JobManager to connect to).");
 		}
 
 		if (port <= 0 || port >= 65536) {
 			throw new ConfigurationException("Invalid value for '" + JobManagerOptions.PORT +
-				"' (port of the JobManager actor system) : " + port +
-				".  it must be greater than 0 and less than 65536.");
+					"' (port of the JobManager actor system) : " + port +
+					".  it must be greater than 0 and less than 65536.");
 		}
 
 		return Tuple2.of(hostname, port);
@@ -220,25 +220,25 @@ public class HighAvailabilityServicesUtils {
 
 		try {
 			highAvailabilityServicesFactory = InstantiationUtil.instantiate(
-				haServicesClassName,
-				HighAvailabilityServicesFactory.class,
-				classLoader);
+					haServicesClassName,
+					HighAvailabilityServicesFactory.class,
+					classLoader);
 		} catch (Exception e) {
 			throw new FlinkException(
-				String.format(
-					"Could not instantiate the HighAvailabilityServicesFactory '%s'. Please make sure that this class is on your class path.",
-					haServicesClassName),
-				e);
+					String.format(
+							"Could not instantiate the HighAvailabilityServicesFactory '%s'. Please make sure that this class is on your class path.",
+							haServicesClassName),
+					e);
 		}
 
 		try {
 			return highAvailabilityServicesFactory.createHAServices(config, executor);
 		} catch (Exception e) {
 			throw new FlinkException(
-				String.format(
-					"Could not create the ha services from the instantiated HighAvailabilityServicesFactory %s.",
-					haServicesClassName),
-				e);
+					String.format(
+							"Could not create the ha services from the instantiated HighAvailabilityServicesFactory %s.",
+							haServicesClassName),
+					e);
 		}
 	}
 

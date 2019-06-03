@@ -114,9 +114,6 @@ public class FileSystemSubmittedJobGraphStore implements SubmittedJobGraphStore 
         checkNotNull(jobGraph, "Job graph");
         String hexJobId = jobGraph.getJobId().toHexString();
 
-        LOG.debug("Adding job graph {}.", hexJobId);
-
-
         synchronized (cacheLock) {
             verifyIsRunning();
 
@@ -146,8 +143,6 @@ public class FileSystemSubmittedJobGraphStore implements SubmittedJobGraphStore 
         checkNotNull(jobId, "Job ID");
         String hexJobId = jobId.toHexString();
 
-        LOG.debug("Removing job graph {} .", hexJobId);
-
         synchronized (cacheLock) {
             try {
                 graphs.remove(hexJobId);
@@ -169,7 +164,7 @@ public class FileSystemSubmittedJobGraphStore implements SubmittedJobGraphStore 
      *
      * @param jobId specifying the job to release the locks for
      * @throws Exception if the locks cannot be released
-    */
+     */
 
     @Override
     public void releaseJobGraph(JobID jobId) throws Exception {
@@ -185,12 +180,12 @@ public class FileSystemSubmittedJobGraphStore implements SubmittedJobGraphStore 
 
     @Override
     public Collection<JobID> getJobIds() throws Exception {
-        LOG.debug("Retrieving all stored job ids.");
         List<String> ids = stateStorage.getJobIDs();
         List<JobID> jobIds = new ArrayList<>(ids.size());
         for(String id : ids) {
             jobIds.add(JobID.fromHexString(id));
         }
+        LOG.info("Retrieving all stored job ids. Found " + jobIds.size());
         return jobIds;
     }
 
@@ -206,8 +201,6 @@ public class FileSystemSubmittedJobGraphStore implements SubmittedJobGraphStore 
     public SubmittedJobGraph recoverJobGraph(JobID jobId) throws Exception {
         checkNotNull(jobId, "Job ID");
         String hexJobId = jobId.toHexString();
-
-        LOG.debug("Recovering job graph {}.", hexJobId);
 
         synchronized (cacheLock) {
             verifyIsRunning();

@@ -49,12 +49,12 @@ public class FileSystemUtils {
     private static final Logger LOG = LoggerFactory.getLogger(FileSystemUtils.class);
 
     /**
-     * Creates a {@link FileSystemStateStorageHelper} instance.
+     * Creates a {@link FileSystemStorageHelper} instance.
      *
      * @param configuration {@link Configuration} object
      * @param prefix Prefix for the created files
      * @param <T> Type of the state objects
-     * @return {@link FileSystemStateStorageHelper} instance
+     * @return {@link FileSystemStorageHelper} instance
      * @throws IOException if file system state storage cannot be created
      */
     private static <T extends Serializable> FileSystemStorageHelper<T> createFileSystemStateStorage(
@@ -62,6 +62,10 @@ public class FileSystemUtils {
             String prefix) throws IOException {
 
         String storagePath = configuration.getValue(HighAvailabilityOptions.HA_STORAGE_PATH) + "/ha";
+        if(storagePath.startsWith("file://")) {
+            storagePath = storagePath.substring(7);
+        }
+        LOG.info("Creating FileSystemStorageHelper with path " + storagePath + " prefix " + prefix);
         if (isNullOrWhitespaceOnly(storagePath)) {
             throw new IllegalConfigurationException("Configuration is missing the mandatory parameter: " +
                     HighAvailabilityOptions.HA_STORAGE_PATH);
@@ -77,10 +81,12 @@ public class FileSystemUtils {
      * @return {@link SubmittedJobGraphStore} instance
      * @throws Exception if the submitted job graph store cannot be created
      */
+
     public static SubmittedJobGraphStore createSubmittedJobGraphs(
             Configuration configuration) throws Exception {
 
         checkNotNull(configuration, "Configuration");
+        LOG.info("Creating SubmittedJobGraphStore");
 
         FileSystemStorageHelper<SubmittedJobGraph> stateStorage = createFileSystemStateStorage(configuration, "submittedJobGraph");
 
@@ -97,6 +103,7 @@ public class FileSystemUtils {
      * @return {@link CompletedCheckpointStore} instance
      * @throws Exception if the completed checkpoint store cannot be created
      */
+
     public static CompletedCheckpointStore createCompletedCheckpoints(
             Configuration configuration,
             JobID jobId,
@@ -111,16 +118,17 @@ public class FileSystemUtils {
                     HighAvailabilityOptions.HA_STORAGE_PATH);
         }
 
+        String hexJobId = jobId.toHexString();
+        LOG.info("Creating CompletedCheckpointStore for job " + hexJobId);
         FileSystemStorageHelper<CompletedCheckpoint> stateStorage = createFileSystemStateStorage(
                 configuration,
-                "completedCheckpoint/" + jobId.toHexString());
+                "completedCheckpoint/" + hexJobId);
 
         final FileSystemCompletedCheckpointStore completedCheckpointStore = new FileSystemCompletedCheckpointStore(
                 maxNumberOfCheckpointsToRetain,
                 stateStorage,
                 executor);
 
-        LOG.info("Initialized {}.", FileSystemCompletedCheckpointStore.class.getSimpleName());
         return completedCheckpointStore;
     }
 
@@ -131,15 +139,18 @@ public class FileSystemUtils {
      * @return {@link CheckpointIDCounter}   instance
      * @throws Exception if the completed checkpoint store cannot be created
      */
+
     public static CheckpointIDCounter createCheckPointIDCounter(
             Configuration configuration, JobID jobId) throws Exception {
 
         checkNotNull(configuration, "Configuration");
 
+        String hexJobId = jobId.toHexString();
         FileSystemStorageHelper<Integer> counterStorage = createFileSystemStateStorage(
                 configuration,
-                "checkpointcounter/" + jobId.toHexString());
+                "checkpointcounter/" + hexJobId);
 
+        LOG.info("Creating CheckpointIDCounter for job " + hexJobId);
         return new FileSystemCheckpointIDCounter(counterStorage);
     }
 }

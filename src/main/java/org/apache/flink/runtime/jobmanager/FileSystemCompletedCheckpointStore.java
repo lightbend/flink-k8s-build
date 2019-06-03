@@ -78,6 +78,7 @@ public class FileSystemCompletedCheckpointStore implements CompletedCheckpointSt
      * @param checkpointStorage              Completed checkpoints in file system
      * @param executor                       to execute blocking calls
      */
+
     public FileSystemCompletedCheckpointStore(
             int maxNumberOfCheckpointsToRetain,
             FileSystemStorageHelper<CompletedCheckpoint> checkpointStorage,
@@ -106,12 +107,14 @@ public class FileSystemCompletedCheckpointStore implements CompletedCheckpointSt
      * this will only recover the latest and discard the others. Otherwise, there is no guarantee
      * that the history of checkpoints is consistent.
      */
+
     @Override
     public void recover() throws Exception {
         LOG.info("Recovering checkpoints.");
 
         // Get all there is first
         List<File> checkpointfiles = checkpointStorage.getFiles();
+        LOG.info("Get " + checkpointfiles.size() + " checkpoint files");
         Collections.sort(checkpointfiles, new Comparator<File>() {
             @Override
             public int compare(File o1, File o2) {
@@ -149,12 +152,14 @@ public class FileSystemCompletedCheckpointStore implements CompletedCheckpointSt
      *
      * @param checkpoint Completed checkpoint to add.
      */
+
     @Override
     public void addCheckpoint(final CompletedCheckpoint checkpoint) throws Exception {
         checkNotNull(checkpoint, "Checkpoint");
 
         // Now add the new one. If it fails, we don't want to loose existing data.
         Long id = checkpoint.getCheckpointID();
+        LOG.info("Adding checkpoint " + id);
         try {
            File file = checkpointStorage.store(checkpoint, "chk_" + id.toString());
            completedCheckpoints.addLast(file);
@@ -183,6 +188,7 @@ public class FileSystemCompletedCheckpointStore implements CompletedCheckpointSt
             FSDataInputStream inputStream = checkpointStorage.getInputStream(file);
             CompletedCheckpoint chk = InstantiationUtil.deserializeObject(inputStream, ClassLoader.getSystemClassLoader());
             inputStream.close();
+            LOG.info("Restored checkpoint from file " + file.getPath());
             return chk;
         }
         catch (Throwable t){
