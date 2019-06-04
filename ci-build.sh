@@ -65,9 +65,9 @@ echo "metrics.reporters: prom" >> "${DISTRO}/scala12/conf/flink-conf.yaml"
 echo "metrics.reporter.prom.class: org.apache.flink.metrics.prometheus.PrometheusReporter" >> "${DISTRO}/scala12/conf/flink-conf.yaml"
 echo "metrics.reporter.prom.port: 9249" >>  "${DISTRO}/scala12/conf/flink-conf.yaml"
 
-docker build --build-arg flink_dist="${DISTRO}/scala11" -f Dockerfile_alpine -t lightbend/flink:$FLINK_VERSION_scala_2.11_alpine .
-docker build --build-arg flink_dist="${DISTRO}/scala12" -f Dockerfile_alpine -t lightbend/flink:$FLINK_VERSION_scala_2.12_alpine .
-docker build --build-arg flink_dist="${DISTRO}/scala11" -f Dockerfile_debian -t lightbend/flink:$FLINK_VERSION_scala_2.11_debian .
-docker build --build-arg flink_dist="${DISTRO}/scala12" -f Dockerfile_debian -t lightbend/flink:$FLINK_VERSION_scala_2.12_debian .
-docker build --build-arg flink_dist="${DISTRO}/scala11" -f Dockerfile_ubuntu -t lightbend/flink:$FLINK_VERSION_scala_2.11_ubuntu .
-docker build --build-arg flink_dist="${DISTRO}/scala12" -f Dockerfile_ubuntu -t lightbend/flink:$FLINK_VERSION_scala_2.12_ubuntu .
+docker build --build-arg flink_dist="${DISTRO}/scala11" -f Dockerfile_alpine -t lightbend/flink:${FLINK_VERSION}_scala_2.11_alpine .
+docker build --build-arg flink_dist="${DISTRO}/scala12" -f Dockerfile_alpine -t lightbend/flink:${FLINK_VERSION}_scala_2.12_alpine .
+docker build --build-arg flink_dist="${DISTRO}/scala11" -f Dockerfile_debian -t lightbend/flink:${FLINK_VERSION}_scala_2.11_debian .
+docker build --build-arg flink_dist="${DISTRO}/scala12" -f Dockerfile_debian -t lightbend/flink:${FLINK_VERSION}_scala_2.12_debian .
+docker build --build-arg flink_dist="${DISTRO}/scala11" -f Dockerfile_ubuntu -t lightbend/flink:${FLINK_VERSION}_scala_2.11_ubuntu .
+docker build --build-arg flink_dist="${DISTRO}/scala12" -f Dockerfile_ubuntu -t lightbend/flink:${FLINK_VERSION}_scala_2.12_ubuntu .
