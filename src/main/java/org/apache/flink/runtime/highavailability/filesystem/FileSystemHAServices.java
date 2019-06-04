@@ -25,7 +25,7 @@ import org.apache.flink.runtime.blob.BlobStoreService;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.RunningJobsRegistry;
-import org.apache.flink.runtime.highavailability.nonha.embedded.EmbeddedLeaderService;
+import org.apache.flink.runtime.highavailability.nonha.embedded.EmbeddedHaServices;
 import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneHaServices;
 import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneRunningJobsRegistry;
 import org.apache.flink.runtime.jobmanager.SubmittedJobGraphStore;
@@ -33,10 +33,8 @@ import org.apache.flink.runtime.leaderelection.LeaderElectionService;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.util.ExceptionUtils;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.GuardedBy;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.concurrent.Executor;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -96,13 +94,10 @@ public class FileSystemHAServices implements HighAvailabilityServices {
 	private final Executor executor;
 
 	/** Used for Mini cluster (local == true) */
-	private EmbeddedLeaderService resourceManagerLeaderService;
-	private EmbeddedLeaderService dispatcherLeaderService;
-	private HashMap<JobID, EmbeddedLeaderService> jobManagerLeaderServices;
-	private EmbeddedLeaderService webMonitorLeaderService;
+	private EmbeddedHaServices miniclusterURLResolver;
 
 	/** Used for cluster (local == false) */
-	private StandaloneHaServices URLResolver;
+	private StandaloneHaServices clusterURLResolver;
 
 	private final boolean local;
 
@@ -117,12 +112,10 @@ public class FileSystemHAServices implements HighAvailabilityServices {
 			Executor executor,
 			Configuration configuration,
 			BlobStoreService blobStoreService) {
-		this.executor = checkNotNull(executor);
-		this.resourceManagerLeaderService = createEmbeddedLeaderService(executor);
-		this.dispatcherLeaderService = createEmbeddedLeaderService(executor);
-		this.jobManagerLeaderServices = new HashMap<>();
-		this.webMonitorLeaderService = createEmbeddedLeaderService(executor);
 
+		miniclusterURLResolver = new EmbeddedHaServices(executor);
+
+		this.executor = checkNotNull(executor);
 		this.blobStoreService = checkNotNull(blobStoreService, "blobStoreService");
 		this.configuration = configuration;
 		this.runningJobsRegistry = new StandaloneRunningJobsRegistry();
@@ -135,7 +128,12 @@ public class FileSystemHAServices implements HighAvailabilityServices {
 	 * Creates a new services class for cluster usage.
 	 *
 	 * @param resourceManagerAddress    The fix address of the ResourceManager
-	 * @param webMonitorAddress
+	 * @param dispatcherAddress    		The fix address of the Dispatcher
+	 * @param jobManagerAddress    		The fix address of the Job Manager
+	 * @param webMonitorAddress			The fix address of the Web Monitor
+	 * @param executor    				Current executor
+	 * @param configuration				Configuration
+	 * @param blobStoreService			Blob store service
 	 */
 	public FileSystemHAServices(
 			String resourceManagerAddress,
@@ -146,7 +144,7 @@ public class FileSystemHAServices implements HighAvailabilityServices {
 			Configuration configuration,
 			BlobStoreService blobStoreService) {
 
-		URLResolver = new StandaloneHaServices(resourceManagerAddress, dispatcherAddress, jobManagerAddress, webMonitorAddress);
+		clusterURLResolver = new StandaloneHaServices(resourceManagerAddress, dispatcherAddress, jobManagerAddress, webMonitorAddress);
 
 		this.executor = checkNotNull(executor);
 		this.blobStoreService = checkNotNull(blobStoreService, "blobStoreService");
@@ -165,40 +163,40 @@ public class FileSystemHAServices implements HighAvailabilityServices {
 	@Override
 	public LeaderRetrievalService getResourceManagerLeaderRetriever() {
 		if (local) {
-			return resourceManagerLeaderService.createLeaderRetrievalService();
+			return miniclusterURLResolver.getResourceManagerLeaderRetriever();
 		}
 		else {
-			return URLResolver.getResourceManagerLeaderRetriever();
+			return clusterURLResolver.getResourceManagerLeaderRetriever();
 		}
 	}
 
 	@Override
 	public LeaderRetrievalService getDispatcherLeaderRetriever() {
 		if(local) {
-			return dispatcherLeaderService.createLeaderRetrievalService();
+			return miniclusterURLResolver.getDispatcherLeaderRetriever();
 		}
 		else {
-			return URLResolver.getDispatcherLeaderRetriever();
+			return clusterURLResolver.getDispatcherLeaderRetriever();
 		}
 	}
 
 	@Override
 	public LeaderElectionService getResourceManagerLeaderElectionService() {
 		if (local) {
-			return resourceManagerLeaderService.createLeaderElectionService();
+			return miniclusterURLResolver.getResourceManagerLeaderElectionService();
 		}
 		else {
-			return URLResolver.getResourceManagerLeaderElectionService();
+			return clusterURLResolver.getResourceManagerLeaderElectionService();
 		}
 	}
 
 	@Override
 	public LeaderElectionService getDispatcherLeaderElectionService() {
 		if (local) {
-			return dispatcherLeaderService.createLeaderElectionService();
+			return miniclusterURLResolver.getDispatcherLeaderElectionService();
 		}
 		else {
-			return URLResolver.getDispatcherLeaderElectionService();
+			return clusterURLResolver.getDispatcherLeaderElectionService();
 		}
 	}
 
@@ -207,60 +205,51 @@ public class FileSystemHAServices implements HighAvailabilityServices {
 		checkNotNull(jobID);
 
 		if (local) {
-			synchronized (lock) {
-				checkNotShutdown();
-				EmbeddedLeaderService service = getOrCreateJobManagerService(jobID);
-				return service.createLeaderRetrievalService();
-			}
+			return miniclusterURLResolver.getJobManagerLeaderRetriever(jobID);
 		}
 		else {
-			return URLResolver.getJobManagerLeaderRetriever(jobID);
+			return clusterURLResolver.getJobManagerLeaderRetriever(jobID);
 		}
 	}
 
 	@Override
 	public LeaderRetrievalService getJobManagerLeaderRetriever(JobID jobID, String defaultJobManagerAddress) {
 		if (local) {
-			return getJobManagerLeaderRetriever(jobID);
+			return miniclusterURLResolver.getJobManagerLeaderRetriever(jobID,defaultJobManagerAddress);
 		}
 		else {
-			return URLResolver.getJobManagerLeaderRetriever(jobID,defaultJobManagerAddress);
+			return clusterURLResolver.getJobManagerLeaderRetriever(jobID,defaultJobManagerAddress);
 		}
 	}
 
 	@Override
 	public LeaderElectionService getJobManagerLeaderElectionService(JobID jobID) {
 
-		checkNotNull(jobID);
 		if (local) {
-			synchronized (lock) {
-				checkNotShutdown();
-				EmbeddedLeaderService service = getOrCreateJobManagerService(jobID);
-				return service.createLeaderElectionService();
-			}
+			return miniclusterURLResolver.getJobManagerLeaderElectionService(jobID);
 		}
 		else {
-			return URLResolver.getJobManagerLeaderElectionService(jobID);
+			return clusterURLResolver.getJobManagerLeaderElectionService(jobID);
 		}
 	}
 
 	@Override
 	public LeaderRetrievalService getWebMonitorLeaderRetriever() {
 		if (local) {
-			return webMonitorLeaderService.createLeaderRetrievalService();
+			return miniclusterURLResolver.getWebMonitorLeaderRetriever();
 		}
 		else {
-			return URLResolver.getWebMonitorLeaderRetriever();
+			return clusterURLResolver.getWebMonitorLeaderRetriever();
 		}
 	}
 
 	@Override
 	public LeaderElectionService getWebMonitorLeaderElectionService() {
 		if (local) {
-			return webMonitorLeaderService.createLeaderElectionService();
+			return miniclusterURLResolver.getWebMonitorLeaderElectionService();
 		}
 		else {
-			return URLResolver.getWebMonitorLeaderElectionService();
+			return clusterURLResolver.getWebMonitorLeaderElectionService();
 		}
 	}
 
@@ -291,37 +280,6 @@ public class FileSystemHAServices implements HighAvailabilityServices {
 			checkNotShutdown();
 			return blobStoreService;
 		}
-	}
-
-	// ------------------------------------------------------------------------
-	// internal
-	// ------------------------------------------------------------------------
-
-	EmbeddedLeaderService getDispatcherLeaderService() {
-		return dispatcherLeaderService;
-	}
-
-	EmbeddedLeaderService getJobManagerLeaderService(JobID jobId) {
-		return jobManagerLeaderServices.get(jobId);
-	}
-
-	EmbeddedLeaderService getResourceManagerLeaderService() {
-		return resourceManagerLeaderService;
-	}
-
-	@Nonnull
-	private EmbeddedLeaderService createEmbeddedLeaderService(Executor executor) {
-		return new EmbeddedLeaderService(executor);
-	}
-
-	@GuardedBy("lock")
-	private EmbeddedLeaderService getOrCreateJobManagerService(JobID jobID) {
-		EmbeddedLeaderService service = jobManagerLeaderServices.get(jobID);
-		if (service == null) {
-			service = createEmbeddedLeaderService(executor);
-			jobManagerLeaderServices.put(jobID, service);
-		}
-		return service;
 	}
 
 	// ------------------------------------------------------------------------
