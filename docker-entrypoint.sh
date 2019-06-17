@@ -36,20 +36,37 @@ elif [[ "${CMD}" = "${JOB_MANAGER}" || "${CMD}" = "${JOB_CLUSTER}" || "${CMD}" =
     echo "blob.server.port: 6124" >> "$FLINK_HOME/conf/flink-conf.yaml"
     echo "query.server.port: 6125" >> "$FLINK_HOME/conf/flink-conf.yaml"
 
+    # Update parallelism
+    if [[ -z "${PARALLELISM}" ]]; then
+        echo "Using default parralelism of 1"
+    else
+        sed -i -e "s/parallelism.default: 1/parallelism.default: ${PARALLELISM}/g" "$FLINK_HOME/conf/flink-conf.yaml"
+        echo "Using default parralelism of ${PARALLELISM}"
+    fi
+
     # Use HA, if checkpoint is defined
-    if [[ -z "${CheckpointDir}" ]]; then
+    if [[ -z "${CHECKPOINTDIR}" ]]; then
         echo "No checkpoint defined"
     else
         echo "high-availability: filesystem" >> "$FLINK_HOME/conf/flink-conf.yaml"
-        echo "high-availability.storageDir: file://${CheckpointDir}" >> "$FLINK_HOME/conf/flink-conf.yaml"
+        echo "high-availability.storageDir: file://${CHECKPOINTDIR}" >> "$FLINK_HOME/conf/flink-conf.yaml"
         echo "state.checkpoints.num-retained: 5" >> "$FLINK_HOME/conf/flink-conf.yaml"
     fi
     # Set Savepoint
-    if [[ -z "${SavepointDir}" ]]; then
+    if [[ -z "${SAVEPOINTDIR}" ]]; then
         echo "No savepoint defined"
     else
-        echo "state.savepoints.dir: file://${SavepointDir}" >> "$FLINK_HOME/conf/flink-conf.yaml"
+        echo "state.savepoints.dir: file://${SAVEPOINTDIR}" >> "$FLINK_HOME/conf/flink-conf.yaml"
     fi
+
+    # Update logging
+    if [[ -z "${LOGCONFIGDIR}" ]]; then
+        echo "Using Flink's default logging"
+    else
+         cp -rf ${LOGCONFIGDIR} $FLINK_HOME/conf/
+        echo "Updated logging info"
+    fi
+
     if [[ "${CMD}" = "${TASK_MANAGER}" ]]; then
 
         echo "Starting Task Manager"
