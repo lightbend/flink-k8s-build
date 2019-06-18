@@ -63,7 +63,7 @@ elif [[ "${CMD}" = "${JOB_MANAGER}" || "${CMD}" = "${JOB_CLUSTER}" || "${CMD}" =
     if [[ -z "${LOGCONFIGDIR}" ]]; then
         echo "Using Flink's default logging"
     else
-         cp -rf ${LOGCONFIGDIR} $FLINK_HOME/conf/
+        cp ${LOGCONFIGDIR}/* $FLINK_HOME/conf/
         echo "Updated logging info"
     fi
 
